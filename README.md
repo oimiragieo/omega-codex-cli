@@ -1,6 +1,6 @@
 # Omega Codex CLI
 
-Portable skill pack for running Codex CLI headless from multiple agent surfaces (Codex, Cursor, Antigravity, VS Code tasks, and Claude commands that shell out).
+Portable skill pack for running Codex CLI headless from multiple agent surfaces (Codex, Cursor, Antigravity, and VS Code tasks).
 
 ## Core idea
 
