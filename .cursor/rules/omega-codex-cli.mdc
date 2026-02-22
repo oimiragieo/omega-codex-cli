@@ -1,0 +1,16 @@
+---
+description: Route "ask codex" style requests to omega-codex-cli headless wrapper
+alwaysApply: true
+---
+
+When users ask to run Codex headless for analysis/brainstorming, execute:
+
+```bash
+node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs "PROMPT"
+```
+
+If setup fails, run:
+
+```bash
+node .claude/skills/omega-codex-cli/scripts/verify-setup.mjs
+```

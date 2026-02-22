@@ -1,0 +1,12 @@
+---
+description: Usage reference for ask-codex.mjs
+alwaysApply: false
+globs: "**/*.{ts,js,py,md,json}"
+---
+
+```bash
+node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs "PROMPT" [--model MODEL] [--json] [--sandbox] [--timeout-ms N]
+```
+
+- `--json` passes through `codex exec --json` JSONL output.
+- `--sandbox` maps to workspace-write sandbox mode.

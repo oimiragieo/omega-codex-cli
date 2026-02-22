@@ -1,0 +1,15 @@
+node_modules/
+*.log
+.env
+.DS_Store
+.claude/settings.local.json
+*.swp
+*.swo
+.vscode/
+.idea/
+.npmignore
+CLAUDE.md
+
+# Lint / format
+.eslintcache
+.prettier-cache
