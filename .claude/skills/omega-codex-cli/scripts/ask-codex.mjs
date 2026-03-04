@@ -55,7 +55,9 @@ function runCandidate(candidate, runOptions, timeoutMs) {
   return new Promise((resolve) => {
     let proc;
     try {
-      proc = spawn(candidate.executable, candidate.args, runOptions);
+      const spawnOpts =
+        process.platform === 'win32' ? runOptions : { ...runOptions, detached: true };
+      proc = spawn(candidate.executable, candidate.args, spawnOpts);
     } catch (err) {
       if (err && (err.code === 'ENOENT' || err.code === 'EINVAL')) {
         resolve({ enoent: true });
@@ -108,7 +110,11 @@ function runCandidate(candidate, runOptions, timeoutMs) {
             killer.on('close', () => done());
           });
         } else {
-          proc.kill('SIGKILL');
+          try {
+            process.kill(-proc.pid, 'SIGKILL');
+          } catch {
+            proc.kill('SIGKILL');
+          }
         }
       }, timeoutMs);
     }
