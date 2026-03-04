@@ -233,7 +233,8 @@ async function main() {
   const lines = [];
   let stdinBytes = 0;
   let stdinLimitExceeded = false;
-  const newlineBytes = process.platform === 'win32' ? 2 : 1;
+  // lines.join('\n') always uses a 1-byte newline regardless of platform.
+  const newlineBytes = 1;
   rl.on('line', (line) => {
     if (stdinLimitExceeded) return;
     const separatorBytes = lines.length > 0 ? newlineBytes : 0;
@@ -251,7 +252,9 @@ async function main() {
       console.error(
         `Input from stdin exceeds ${(EFFECTIVE_MAX_STDIN_BYTES / (1024 * 1024)).toFixed(1)} MB limit. Provide a shorter prompt.`
       );
-      process.exit(1);
+      // Use exitCode rather than process.exit() so buffered stderr is flushed
+      // before the process terminates naturally.
+      process.exitCode = 1;
       return;
     }
     await run(lines.join('\n'), opts);

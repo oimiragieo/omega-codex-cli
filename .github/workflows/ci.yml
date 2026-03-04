@@ -29,3 +29,6 @@ jobs:
 
       - name: Format check
         run: npm run format:check
+
+      - name: Changelog policy check
+        run: npm run changelog:check
