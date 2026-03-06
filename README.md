@@ -160,6 +160,7 @@ The wrapper runs the following under the hood:
 codex exec "PROMPT" --skip-git-repo-check
 # With optional additions:
 #   --model gpt-5-mini
+#   --model gpt-5.3-codex
 #   --json
 #   --sandbox workspace-write
 ```
@@ -228,8 +229,12 @@ copilot -p "Review this function for bugs"
 # Select a specific model
 COPILOT_MODEL="gpt-5" copilot -p "Review this function for bugs"
 
+# Use the latest code-specialized model
+COPILOT_MODEL="gpt-5.3-codex" copilot -p "Review this function for bugs"
+
 # PowerShell
 $env:COPILOT_MODEL="gpt-5"; copilot -p "Review this function"
+$env:COPILOT_MODEL="gpt-5.3-codex"; copilot -p "Review this function"
 ```
 
 See [references/copilot-cli.md](.claude/skills/omega-codex-cli/references/copilot-cli.md) for the full Copilot CLI reference.
@@ -336,10 +341,15 @@ node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
   "Summarize this diff" \
   --model gpt-5-mini
 
-# Use the latest model
+# Use gpt-5
 node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
   "Deep architectural review" \
   --model gpt-5
+
+# Use the latest code-specialized model (March 2026)
+node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
+  "Deep architectural review" \
+  --model gpt-5.3-codex
 ```
 
 ### JSON output for automation
@@ -386,7 +396,7 @@ if [ $? -eq 124 ]; then echo "Codex timed out"; fi
 ```bash
 node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
   "Analyze this codebase and list the top 3 security risks" \
-  --model gpt-5 \
+  --model gpt-5.3-codex \
   --json \
   --timeout-ms 60000
 ```
@@ -413,7 +423,7 @@ node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
   run: |
     node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
       "Review the PR diff for security issues and breaking changes" \
-      --model gpt-5 \
+      --model gpt-5.3-codex \
       --json
 ```
 
