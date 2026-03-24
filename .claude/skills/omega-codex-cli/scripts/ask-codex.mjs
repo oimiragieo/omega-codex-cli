@@ -6,6 +6,8 @@
  *   echo "prompt" | node ask-codex.mjs [--model MODEL] [--json] [--sandbox] [--timeout-ms N]
  */
 import { spawn } from 'child_process';
+import { createReadStream, mkdtempSync, writeFileSync, unlinkSync, rmSync } from 'fs';
+import os from 'os';
 import path from 'path';
 import { createInterface } from 'readline';
 import { fileURLToPath } from 'url';
@@ -21,6 +23,13 @@ const EFFECTIVE_MAX_STDIN_BYTES =
   Number.isInteger(MAX_STDIN_BYTES) && MAX_STDIN_BYTES > 0
     ? MAX_STDIN_BYTES
     : MAX_STDIN_BYTES_DEFAULT;
+
+/**
+ * Byte threshold beyond which the prompt is written to a temp file and piped
+ * via stdin instead of being passed as a CLI argument.  This avoids the ~8 KB
+ * command-line length limit on Windows (cmd.exe) and similar OS limits.
+ */
+const PROMPT_ARG_BYTE_LIMIT = 6 * 1024;
 
 export function buildCodexArgs({ prompt, model, outputJson, sandbox }) {
   const cliArgs = ['exec', prompt.trim(), '--skip-git-repo-check'];
@@ -51,7 +60,7 @@ export function getExecutables(cliArgs, isWin) {
   ];
 }
 
-function runCandidate(candidate, runOptions, timeoutMs) {
+function runCandidate(candidate, runOptions, timeoutMs, stdinFile) {
   return new Promise((resolve) => {
     let proc;
     try {
@@ -71,6 +80,20 @@ function runCandidate(candidate, runOptions, timeoutMs) {
       });
       return;
     }
+
+    // If a temp file was provided, pipe its contents into the process stdin.
+    if (stdinFile && proc.stdin) {
+      const rs = createReadStream(stdinFile);
+      rs.pipe(proc.stdin);
+      rs.on('error', () => {
+        try {
+          proc.stdin.end();
+        } catch {
+          /* ignore */
+        }
+      });
+    }
+
     let stdout = '';
     let stderr = '';
     let timedOut = false;
@@ -147,9 +170,9 @@ function runCandidate(candidate, runOptions, timeoutMs) {
   });
 }
 
-async function runWithFallback(candidates, runOptions, timeoutMs) {
+async function runWithFallback(candidates, runOptions, timeoutMs, stdinFile) {
   for (const candidate of candidates) {
-    const result = await runCandidate(candidate, runOptions, timeoutMs);
+    const result = await runCandidate(candidate, runOptions, timeoutMs, stdinFile);
     if (result.enoent) continue;
     const combined = [result.stderr, result.stdout].filter(Boolean).join('\n');
     if (
@@ -181,6 +204,34 @@ function printFailure(stderr, stdout, timedOut) {
   if (hint) console.error(hint);
 }
 
+/**
+ * Write prompt to a temp file and return { tmpDir, tmpFile } so the caller
+ * can clean up.  Returns null when the prompt fits in a CLI argument.
+ */
+function maybeMaterializePrompt(promptText) {
+  if (Buffer.byteLength(promptText, 'utf8') <= PROMPT_ARG_BYTE_LIMIT) {
+    return null;
+  }
+  const tmpDir = mkdtempSync(path.join(os.tmpdir(), 'omega-codex-'));
+  const tmpFile = path.join(tmpDir, 'prompt.txt');
+  writeFileSync(tmpFile, promptText, 'utf8');
+  return { tmpDir, tmpFile };
+}
+
+function cleanupTempPrompt(materialized) {
+  if (!materialized) return;
+  try {
+    unlinkSync(materialized.tmpFile);
+  } catch {
+    /* ignore */
+  }
+  try {
+    rmSync(materialized.tmpDir, { recursive: true, force: true });
+  } catch {
+    /* ignore */
+  }
+}
+
 async function run(promptText, opts) {
   try {
     assertNonEmptyPrompt(promptText);
@@ -189,25 +240,41 @@ async function run(promptText, opts) {
     process.exit(1);
   }
 
-  const cliArgs = buildCodexArgs({
-    prompt: promptText,
-    model: opts.model,
-    outputJson: opts.outputJson,
-    sandbox: opts.sandbox,
-  });
-  const runOptions = {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    shell: false,
-  };
-  const candidates = getExecutables(cliArgs, process.platform === 'win32');
-  const result = await runWithFallback(candidates, runOptions, opts.timeoutMs);
+  // For large prompts, write to a temp file and pipe via stdin to avoid OS
+  // command-line length limits.  The CLI arg gets a short placeholder while the
+  // real prompt is streamed into the child process stdin.
+  const materialized = maybeMaterializePrompt(promptText);
+  try {
+    const effectivePrompt = materialized
+      ? 'Follow the instructions provided via stdin.'
+      : promptText;
+    const cliArgs = buildCodexArgs({
+      prompt: effectivePrompt,
+      model: opts.model,
+      outputJson: opts.outputJson,
+      sandbox: opts.sandbox,
+    });
+    const runOptions = {
+      stdio: [materialized ? 'pipe' : 'ignore', 'pipe', 'pipe'],
+      shell: false,
+    };
+    const candidates = getExecutables(cliArgs, process.platform === 'win32');
+    const result = await runWithFallback(
+      candidates,
+      runOptions,
+      opts.timeoutMs,
+      materialized ? materialized.tmpFile : null
+    );
 
-  if (result.code !== 0) {
-    printFailure(result.stderr, result.stdout, result.timedOut);
-    process.exit(result.timedOut ? 124 : (result.code ?? 1));
+    if (result.code !== 0) {
+      printFailure(result.stderr, result.stdout, result.timedOut);
+      process.exit(result.timedOut ? 124 : (result.code ?? 1));
+    }
+
+    process.stdout.write(result.stdout);
+  } finally {
+    cleanupTempPrompt(materialized);
   }
-
-  process.stdout.write(result.stdout);
 }
 
 export function isEntryPoint() {
