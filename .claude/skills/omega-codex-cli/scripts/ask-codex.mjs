@@ -244,6 +244,14 @@ async function run(promptText, opts) {
   // command-line length limits.  The CLI arg gets a short placeholder while the
   // real prompt is streamed into the child process stdin.
   const materialized = maybeMaterializePrompt(promptText);
+  // The try below calls process.exit() on child failure / JSON-parse paths, which
+  // terminates immediately and SKIPS the finally — leaking the temp prompt dir in
+  // $TMPDIR. Register a synchronous exit hook so cleanup runs on EVERY exit path
+  // (normal return, throw, and process.exit). cleanupTempPrompt is idempotent, so
+  // the finally below double-calling it on the happy path is harmless.
+  if (materialized) {
+    process.once('exit', () => cleanupTempPrompt(materialized));
+  }
   try {
     const effectivePrompt = materialized
       ? 'Follow the instructions provided via stdin.'
