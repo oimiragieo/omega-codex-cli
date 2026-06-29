@@ -29,7 +29,7 @@ A zero-dependency Node.js wrapper that lets any agent platform invoke **Codex CL
 - **Cross-platform** — Windows (`cmd.exe` wrapper) and Unix/macOS (direct spawn) handled automatically
 - **Automatic fallback** — tries global `codex` binary, falls back to `npx -y @openai/codex` if not found
 - **Model selection** — pass any Codex-compatible model ID via `--model`
-- **JSON output** — JSONL event stream extraction for automation pipelines
+- **JSON output** — `--json` runs Codex JSONL mode and prints the final response text when found
 - **Sandbox mode** — enables `--sandbox workspace-write` for safe file mutation
 - **Timeout control** — wrapper-side `--timeout-ms` with exit code `124` on expiry
 - **Stdin support** — pipe large prompts from files or other commands (50 MB default limit)
@@ -130,11 +130,24 @@ The `PROMPT` argument is required unless you are piping input from stdin.
 | -------------- | ----- | ------------------- | ------------- | ------------------------------------------------------------------------------------------------------ |
 | `PROMPT`       | —     | string (positional) | required      | The question or task for Codex.                                                                        |
 | `--model`      | `-m`  | string              | Codex default | Model to use. Forwarded directly to `codex exec --model`.                                              |
-| `--json`       | —     | boolean             | `false`       | Enable JSONL event stream output. The wrapper extracts the final response text automatically.          |
+| `--json`       | —     | boolean             | `false`       | Enable Codex JSONL mode. The wrapper prints the final response text when found in the event stream.    |
 | `--sandbox`    | —     | boolean             | `false`       | Enable workspace-write sandbox mode (`--sandbox workspace-write`). Allows Codex to write files safely. |
 | `--timeout-ms` | —     | integer             | `0` (none)    | Abort after N milliseconds. Exit code `124` on timeout. Must be a positive integer.                    |
 | `--help`       | `-h`  | boolean             | `false`       | Print usage and exit.                                                                                  |
 | `--`           | —     | sentinel            | —             | Everything after `--` is treated as part of the prompt. Useful when the prompt starts with `-`.        |
+
+### Model notes
+
+Codex model IDs change over time. See [references/models.md](.claude/skills/omega-codex-cli/references/models.md) and the official [Codex models](https://developers.openai.com/codex/models) guide.
+
+| Model ID              | When to use                                              |
+| --------------------- | -------------------------------------------------------- |
+| `gpt-5.5`             | Default for complex coding, knowledge work, and research |
+| `gpt-5.4`             | Fallback when `gpt-5.5` is not yet in your account       |
+| `gpt-5.4-mini`        | Fast scans, subagents, and large-file review             |
+| `gpt-5.3-codex-spark` | ChatGPT Pro only — near-instant text-only iteration      |
+
+Omit `--model` to use Codex's recommended default. `gpt-5.3-codex` and `gpt-5.2` are deprecated for ChatGPT sign-in — update pinned scripts and CI.
 
 ### Input methods
 
@@ -159,11 +172,13 @@ The wrapper runs the following under the hood:
 ```bash
 codex exec "PROMPT" --skip-git-repo-check
 # With optional additions:
-#   --model gpt-5-mini
-#   --model gpt-5.3-codex
+#   --model gpt-5.5
+#   --model gpt-5.4-mini
 #   --json
 #   --sandbox workspace-write
 ```
+
+Prompts larger than ~6 KB are sent with `codex exec -` and piped via stdin.
 
 ### Exit codes
 
@@ -221,23 +236,7 @@ Codex discovers skills under `.agents/skills/`. When used as a skill host, Codex
 
 ### GitHub Copilot CLI
 
-Use Copilot CLI headlessly and optionally select a backend model via `COPILOT_MODEL`:
-
-```bash
-copilot -p "Review this function for bugs"
-
-# Select a specific model
-COPILOT_MODEL="gpt-5" copilot -p "Review this function for bugs"
-
-# Use the latest code-specialized model
-COPILOT_MODEL="gpt-5.3-codex" copilot -p "Review this function for bugs"
-
-# PowerShell
-$env:COPILOT_MODEL="gpt-5"; copilot -p "Review this function"
-$env:COPILOT_MODEL="gpt-5.3-codex"; copilot -p "Review this function"
-```
-
-See [references/copilot-cli.md](.claude/skills/omega-codex-cli/references/copilot-cli.md) for the full Copilot CLI reference.
+This wrapper invokes **Codex CLI**, not Copilot. If you also use Copilot CLI separately, see [references/copilot-cli.md](.claude/skills/omega-codex-cli/references/copilot-cli.md).
 
 ### Antigravity IDE
 
@@ -336,34 +335,24 @@ node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
 ### Model selection
 
 ```bash
-# Use a specific model
+# Recommended default for complex work
+node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
+  "Deep architectural review" \
+  --model gpt-5.5
+
+# Faster, lower-cost scans
 node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
   "Summarize this diff" \
-  --model gpt-5-mini
-
-# Use gpt-5
-node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
-  "Deep architectural review" \
-  --model gpt-5
-
-# Use the latest code-specialized model (March 2026)
-node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
-  "Deep architectural review" \
-  --model gpt-5.3-codex
+  --model gpt-5.4-mini
 ```
 
 ### JSON output for automation
 
 ```bash
-# Returns JSONL event stream, wrapper extracts final response
+# Prints extracted final response text (falls back to raw JSONL if none found)
 node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
   "Extract all exported function names from this module" \
   --json
-
-# Parse the output
-node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
-  "Summarize in one sentence" \
-  --json | jq -r '.'
 ```
 
 ### Stdin input
@@ -396,7 +385,7 @@ if [ $? -eq 124 ]; then echo "Codex timed out"; fi
 ```bash
 node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
   "Analyze this codebase and list the top 3 security risks" \
-  --model gpt-5.3-codex \
+  --model gpt-5.5 \
   --json \
   --timeout-ms 60000
 ```
@@ -423,7 +412,7 @@ node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
   run: |
     node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
       "Review the PR diff for security issues and breaking changes" \
-      --model gpt-5.3-codex \
+      --model gpt-5.5 \
       --json
 ```
 
@@ -453,8 +442,9 @@ npm test
 
 Tests are written for the Node.js native test runner (`node:test`). Coverage includes:
 
-- **Unit tests** (`tests/ask-codex.test.mjs`) — argument parsing, command construction, platform-specific executable selection, unknown option rejection.
-- **Integration tests** (`tests/ask-codex.integration.test.mjs`) — end-to-end spawning with a stub Codex CLI, timeout handling (exit code `124`), stdin forwarding, JSON envelope extraction, non-zero exit propagation.
+- **Unit tests** (`tests/ask-codex.test.mjs`) — argument parsing, command construction, platform-specific executable selection, unknown option rejection, large-prompt stdin routing.
+- **Integration tests** (`tests/ask-codex.integration.test.mjs`) — end-to-end spawning with a stub Codex CLI, timeout handling (exit code `124`), stdin forwarding, JSON text extraction, stdin byte-limit rejection, non-zero exit propagation.
+- **Format tests** (`tests/format-output.test.mjs`) — JSONL final-message extraction helpers.
 
 ### CI gate
 
@@ -505,6 +495,7 @@ omega-codex-cli/
 │       │   └── verify-setup.mjs              # Node + CLI pre-flight check
 │       └── references/                       # Reference documentation
 │           ├── headless.md                   # Full headless CLI guide
+│           ├── models.md                     # Current Codex model IDs
 │           ├── installation.md               # Node + Codex CLI setup
 │           ├── auth.md                       # Authentication troubleshooting
 │           ├── copy-and-run.md               # Portability guide
@@ -521,7 +512,8 @@ omega-codex-cli/
 ├── .vscode/tasks.json                        # VS Code Ask/Verify tasks
 ├── tests/
 │   ├── ask-codex.test.mjs                    # Unit tests
-│   └── ask-codex.integration.test.mjs        # Integration tests
+│   ├── ask-codex.integration.test.mjs        # Integration tests
+│   └── format-output.test.mjs                # JSONL extraction tests
 ├── scripts/
 │   └── check-changelog.mjs                   # CI changelog validator
 ├── package.json
@@ -534,6 +526,7 @@ omega-codex-cli/
 
 ## Resources
 
+- [Codex — Models](https://developers.openai.com/codex/models)
 - [Codex — Agent Skills](https://developers.openai.com/codex/skills/)
 - [Claude Code — Extend Claude with skills](https://code.claude.com/docs/en/skills)
 - [Cursor — Agent Skills](https://cursor.com/docs/context/skills)

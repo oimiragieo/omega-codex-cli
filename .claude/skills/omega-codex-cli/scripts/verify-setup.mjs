@@ -15,17 +15,29 @@ function checkNode() {
   return { ok: false, message: `Node ${MIN_NODE_MAJOR}+ required; current: ${process.version}` };
 }
 
+function parseCodexVersion(output) {
+  const match = String(output).match(/(\d+)\.(\d+)\.(\d+)/);
+  if (!match) return null;
+  return {
+    major: Number.parseInt(match[1], 10),
+    minor: Number.parseInt(match[2], 10),
+    patch: Number.parseInt(match[3], 10),
+    raw: match[0],
+  };
+}
+
 function checkCodexCLI() {
   try {
-    execSync('codex --version', { stdio: 'pipe', timeout: 5000 });
-    return { ok: true, how: 'codex' };
+    const out = execSync('codex --version', { stdio: 'pipe', timeout: 5000, encoding: 'utf8' });
+    return { ok: true, how: 'codex', version: parseCodexVersion(out) };
   } catch {
     try {
-      execSync('npx -y @openai/codex --version', {
+      const out = execSync('npx -y @openai/codex --version', {
         stdio: 'pipe',
         timeout: 15000,
+        encoding: 'utf8',
       });
-      return { ok: true, how: 'npx @openai/codex' };
+      return { ok: true, how: 'npx @openai/codex', version: parseCodexVersion(out) };
     } catch {
       return {
         ok: false,
@@ -50,7 +62,12 @@ function main() {
 
   const codexResult = checkCodexCLI();
   if (codexResult.ok) {
-    report.push('OK Codex CLI: ' + (codexResult.how || 'found'));
+    const versionLabel = codexResult.version ? ` (${codexResult.version.raw})` : '';
+    report.push('OK Codex CLI: ' + (codexResult.how || 'found') + versionLabel);
+    report.push(
+      'Models: see references/models.md — use gpt-5.5 by default; update the CLI if newer models are missing.'
+    );
+    report.push('Tip: run `codex doctor` to check auth, PATH, and available updates.');
   } else {
     report.push('MISSING Codex CLI: ' + codexResult.message);
     allOk = false;

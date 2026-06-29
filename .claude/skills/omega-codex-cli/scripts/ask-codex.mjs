@@ -12,10 +12,12 @@ import path from 'path';
 import { createInterface } from 'readline';
 import { fileURLToPath } from 'url';
 import { assertNonEmptyPrompt, parseCliArgs } from './parse-args.mjs';
+import { extractFinalMessageFromJsonl } from './format-output.mjs';
 
 const USAGE =
   'Usage: node ask-codex.mjs "prompt" [--model MODEL] [--json] [--sandbox] [--timeout-ms N]\n' +
-  'Notes: --json forwards codex JSONL events to stdout; --sandbox maps to codex --sandbox workspace-write.\n' +
+  'Notes: --json runs codex with JSONL events and prints the final response text when found;\n' +
+  '       --sandbox maps to codex --sandbox workspace-write.\n' +
   'Exit codes: 0 success, 1 error, 124 timeout';
 const MAX_STDIN_BYTES_DEFAULT = 50 * 1024 * 1024;
 const MAX_STDIN_BYTES = Number.parseInt(process.env.ASK_CODEX_MAX_STDIN_BYTES, 10);
@@ -29,10 +31,10 @@ const EFFECTIVE_MAX_STDIN_BYTES =
  * via stdin instead of being passed as a CLI argument.  This avoids the ~8 KB
  * command-line length limit on Windows (cmd.exe) and similar OS limits.
  */
-const PROMPT_ARG_BYTE_LIMIT = 6 * 1024;
+export const PROMPT_ARG_BYTE_LIMIT = 6 * 1024;
 
-export function buildCodexArgs({ prompt, model, outputJson, sandbox }) {
-  const cliArgs = ['exec', prompt.trim(), '--skip-git-repo-check'];
+export function buildCodexArgs({ prompt, model, outputJson, sandbox, promptFromStdin = false }) {
+  const cliArgs = ['exec', promptFromStdin ? '-' : prompt.trim(), '--skip-git-repo-check'];
   if (sandbox) cliArgs.push('--sandbox', 'workspace-write');
   if (model) cliArgs.push('--model', model);
   if (outputJson) cliArgs.push('--json');
@@ -187,6 +189,20 @@ async function runWithFallback(candidates, runOptions, timeoutMs, stdinFile) {
   return { code: 1, stdout: '', stderr: 'Codex CLI not found on PATH.', timedOut: false };
 }
 
+/**
+ * When --json is set, extract the final assistant text from Codex JSONL output.
+ * Falls back to raw stdout when no text payload is found.
+ *
+ * @param {string} stdout
+ * @param {boolean} outputJson
+ * @returns {string}
+ */
+export function formatCodexStdout(stdout, outputJson) {
+  if (!outputJson) return stdout;
+  const extracted = extractFinalMessageFromJsonl(stdout);
+  return extracted || stdout;
+}
+
 function printFailure(stderr, stdout, timedOut) {
   const combined = [stderr, stdout].filter(Boolean).join('\n').trim();
   if (timedOut) {
@@ -240,9 +256,8 @@ async function run(promptText, opts) {
     process.exit(1);
   }
 
-  // For large prompts, write to a temp file and pipe via stdin to avoid OS
-  // command-line length limits.  The CLI arg gets a short placeholder while the
-  // real prompt is streamed into the child process stdin.
+  // For large prompts, write to a temp file and pipe via stdin (`codex exec -`)
+  // to avoid OS command-line length limits.
   const materialized = maybeMaterializePrompt(promptText);
   // The try below calls process.exit() on child failure / JSON-parse paths, which
   // terminates immediately and SKIPS the finally — leaking the temp prompt dir in
@@ -253,14 +268,13 @@ async function run(promptText, opts) {
     process.once('exit', () => cleanupTempPrompt(materialized));
   }
   try {
-    const effectivePrompt = materialized
-      ? 'Follow the instructions provided via stdin.'
-      : promptText;
+    const promptFromStdin = materialized !== null;
     const cliArgs = buildCodexArgs({
-      prompt: effectivePrompt,
+      prompt: promptText,
       model: opts.model,
       outputJson: opts.outputJson,
       sandbox: opts.sandbox,
+      promptFromStdin,
     });
     const runOptions = {
       stdio: [materialized ? 'pipe' : 'ignore', 'pipe', 'pipe'],
@@ -279,7 +293,7 @@ async function run(promptText, opts) {
       process.exit(result.timedOut ? 124 : (result.code ?? 1));
     }
 
-    process.stdout.write(result.stdout);
+    process.stdout.write(formatCodexStdout(result.stdout, opts.outputJson));
   } finally {
     cleanupTempPrompt(materialized);
   }

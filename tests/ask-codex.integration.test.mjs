@@ -83,11 +83,43 @@ describe('ask-codex integration', () => {
     assert.deepEqual(parsed.args, ['exec', 'prompt text', '--skip-git-repo-check', '--json']);
   });
 
-  it('passes through JSONL output in --json mode', () => {
+  it('extracts final message from JSONL output in --json mode', () => {
     const result = runAskCodex(['--json', 'prompt text'], 'jsonl');
 
     assert.equal(result.status, 0);
-    assert.match(result.stdout, /stub response/);
+    assert.equal(result.stdout.trim(), 'stub response');
+  });
+
+  it('pipes large prompts via codex exec -', () => {
+    const largePrompt = 'x'.repeat(7000);
+    const result = runAskCodex([largePrompt], 'echo');
+
+    assert.equal(result.status, 0);
+    const parsed = JSON.parse(result.stdout);
+    assert.deepEqual(parsed.args.slice(0, 3), ['exec', '-', '--skip-git-repo-check']);
+  });
+
+  it('rejects stdin input over ASK_CODEX_MAX_STDIN_BYTES', () => {
+    const stubDir = makeCodexStubDir();
+    const env = {
+      ...process.env,
+      CODEX_STUB_MODE: 'echo',
+      ASK_CODEX_MAX_STDIN_BYTES: '32',
+      PATH: `${stubDir}${path.delimiter}${process.env.PATH || ''}`,
+    };
+
+    const result = spawnSync(process.execPath, [SCRIPT_PATH], {
+      cwd: path.resolve('.'),
+      env,
+      encoding: 'utf8',
+      input: 'this stdin prompt is definitely longer than thirty two bytes',
+      timeout: 10000,
+    });
+
+    rmSync(stubDir, { recursive: true, force: true });
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /exceeds/i);
   });
 
   it('propagates codex non-zero exit and stderr', () => {

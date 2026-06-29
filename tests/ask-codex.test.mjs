@@ -11,13 +11,15 @@ import {
 import {
   buildCodexArgs,
   getExecutables,
+  formatCodexStdout,
+  PROMPT_ARG_BYTE_LIMIT,
 } from '../.claude/skills/omega-codex-cli/scripts/ask-codex.mjs';
 
 describe('parseCliArgs', () => {
   it('parses prompt and options', () => {
-    const opts = parseCliArgs(['review this', '--model', 'gpt-5', '--json', '--sandbox']);
+    const opts = parseCliArgs(['review this', '--model', 'gpt-5.5', '--json', '--sandbox']);
     assert.strictEqual(opts.prompt, 'review this');
-    assert.strictEqual(opts.model, 'gpt-5');
+    assert.strictEqual(opts.model, 'gpt-5.5');
     assert.strictEqual(opts.outputJson, true);
     assert.strictEqual(opts.sandbox, true);
   });
@@ -66,7 +68,7 @@ describe('buildCodexArgs', () => {
   it('constructs required args and optional flags', () => {
     const args = buildCodexArgs({
       prompt: 'analyze file',
-      model: 'gpt-5',
+      model: 'gpt-5.5',
       outputJson: true,
       sandbox: true,
     });
@@ -77,9 +79,32 @@ describe('buildCodexArgs', () => {
       '--sandbox',
       'workspace-write',
       '--model',
-      'gpt-5',
+      'gpt-5.5',
       '--json',
     ]);
+  });
+
+  it('uses codex exec - when prompt is read from stdin file', () => {
+    const args = buildCodexArgs({
+      prompt: 'ignored when stdin',
+      model: '',
+      outputJson: false,
+      sandbox: false,
+      promptFromStdin: true,
+    });
+    assert.deepStrictEqual(args, ['exec', '-', '--skip-git-repo-check']);
+  });
+});
+
+describe('formatCodexStdout (re-exported)', () => {
+  it('is exported from ask-codex.mjs', () => {
+    assert.equal(typeof formatCodexStdout, 'function');
+  });
+});
+
+describe('PROMPT_ARG_BYTE_LIMIT', () => {
+  it('is a positive byte threshold', () => {
+    assert.ok(PROMPT_ARG_BYTE_LIMIT > 0);
   });
 });
 
