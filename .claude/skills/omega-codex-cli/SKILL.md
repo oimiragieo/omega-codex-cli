@@ -24,7 +24,7 @@ Supported options:
 
 ## Models
 
-For current model IDs and deprecation notes, read `references/models.md`. As of mid-2026, start with `gpt-5.5`; use `gpt-5.4-mini` for fast scans.
+For current model IDs and deprecation notes, read `references/models.md`. As of August 2026, start with `gpt-5.6-sol`; use `gpt-5.6-luna` for fast scans.
 
 ## Setup and troubleshooting
 

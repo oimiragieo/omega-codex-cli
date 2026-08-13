@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- **Docs accuracy (Exa / OpenAI, Aug 2026)**: Refreshed model IDs to GPT-5.6 Sol/Terra/Luna (`gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`); documented GPT-5.4 / GPT-5.4-mini ChatGPT retirement on 2026-08-31; fixed CI auth guidance to use step-scoped `CODEX_API_KEY` (and note `openai/codex-action`); expanded install options (official installer, Homebrew) and auth troubleshooting.
+
 - **Models**: Added `references/models.md` with current Codex model IDs (`gpt-5.5`, `gpt-5.4-mini`, etc.) and deprecation notes; updated README, SKILL, and headless docs.
 - **ask-codex**: `--json` now extracts final response text via `format-output.mjs` (falls back to raw JSONL); large prompts use `codex exec -` with stdin piping.
 - **verify-setup**: Reports parsed Codex CLI version and points to `codex doctor` for auth/update checks.

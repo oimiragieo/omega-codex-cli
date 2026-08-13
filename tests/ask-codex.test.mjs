@@ -17,9 +17,9 @@ import {
 
 describe('parseCliArgs', () => {
   it('parses prompt and options', () => {
-    const opts = parseCliArgs(['review this', '--model', 'gpt-5.5', '--json', '--sandbox']);
+    const opts = parseCliArgs(['review this', '--model', 'gpt-5.6-sol', '--json', '--sandbox']);
     assert.strictEqual(opts.prompt, 'review this');
-    assert.strictEqual(opts.model, 'gpt-5.5');
+    assert.strictEqual(opts.model, 'gpt-5.6-sol');
     assert.strictEqual(opts.outputJson, true);
     assert.strictEqual(opts.sandbox, true);
   });
@@ -68,7 +68,7 @@ describe('buildCodexArgs', () => {
   it('constructs required args and optional flags', () => {
     const args = buildCodexArgs({
       prompt: 'analyze file',
-      model: 'gpt-5.5',
+      model: 'gpt-5.6-sol',
       outputJson: true,
       sandbox: true,
     });
@@ -79,7 +79,7 @@ describe('buildCodexArgs', () => {
       '--sandbox',
       'workspace-write',
       '--model',
-      'gpt-5.5',
+      'gpt-5.6-sol',
       '--json',
     ]);
   });

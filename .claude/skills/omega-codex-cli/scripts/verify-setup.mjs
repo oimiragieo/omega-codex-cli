@@ -65,7 +65,7 @@ function main() {
     const versionLabel = codexResult.version ? ` (${codexResult.version.raw})` : '';
     report.push('OK Codex CLI: ' + (codexResult.how || 'found') + versionLabel);
     report.push(
-      'Models: see references/models.md — use gpt-5.5 by default; update the CLI if newer models are missing.'
+      'Models: see references/models.md — use gpt-5.6-sol by default; update the CLI if newer models are missing.'
     );
     report.push('Tip: run `codex doctor` to check auth, PATH, and available updates.');
   } else {

@@ -40,12 +40,12 @@ A zero-dependency Node.js wrapper that lets any agent platform invoke **Codex CL
 
 ## Prerequisites
 
-| Requirement | Minimum version | Install                          |
-| ----------- | --------------- | -------------------------------- |
-| Node.js     | 18+             | [nodejs.org](https://nodejs.org) |
-| Codex CLI   | latest          | `npm install -g @openai/codex`   |
+| Requirement | Minimum version | Install                                                                                                                                              |
+| ----------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Node.js     | 18+             | [nodejs.org](https://nodejs.org)                                                                                                                     |
+| Codex CLI   | latest          | `npm install -g @openai/codex` (or official installer / Homebrew — see [installation.md](.claude/skills/omega-codex-cli/references/installation.md)) |
 
-Codex CLI requires a one-time sign-in. Run `codex` (or `codex login`) in a terminal and complete the authentication flow; credentials are cached and reused by all subsequent headless calls.
+Codex CLI requires a one-time sign-in. Run `codex` (or `codex login`) in a terminal and complete the authentication flow; credentials are cached and reused by all subsequent headless calls. For automation, prefer step-scoped `CODEX_API_KEY` — see [auth.md](.claude/skills/omega-codex-cli/references/auth.md).
 
 ---
 
@@ -142,12 +142,12 @@ Codex model IDs change over time. See [references/models.md](.claude/skills/omeg
 
 | Model ID              | When to use                                              |
 | --------------------- | -------------------------------------------------------- |
-| `gpt-5.5`             | Default for complex coding, knowledge work, and research |
-| `gpt-5.4`             | Fallback when `gpt-5.5` is not yet in your account       |
-| `gpt-5.4-mini`        | Fast scans, subagents, and large-file review             |
+| `gpt-5.6-sol`         | Default for complex coding, knowledge work, and research |
+| `gpt-5.6-terra`       | Everyday workhorse (prior `gpt-5.5` workflows)           |
+| `gpt-5.6-luna`        | Fast scans, subagents, and high-volume structured tasks  |
 | `gpt-5.3-codex-spark` | ChatGPT Pro only — near-instant text-only iteration      |
 
-Omit `--model` to use Codex's recommended default. `gpt-5.3-codex` and `gpt-5.2` are deprecated for ChatGPT sign-in — update pinned scripts and CI.
+Omit `--model` to use Codex's recommended default. `gpt-5.4` / `gpt-5.4-mini` retire for ChatGPT sign-in on **2026-08-31** (use Terra / Luna). `gpt-5.3-codex` and `gpt-5.2` are already deprecated for ChatGPT sign-in — update pinned scripts and CI.
 
 ### Input methods
 
@@ -172,8 +172,8 @@ The wrapper runs the following under the hood:
 ```bash
 codex exec "PROMPT" --skip-git-repo-check
 # With optional additions:
-#   --model gpt-5.5
-#   --model gpt-5.4-mini
+#   --model gpt-5.6-sol
+#   --model gpt-5.6-luna
 #   --json
 #   --sandbox workspace-write
 ```
@@ -338,12 +338,12 @@ node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
 # Recommended default for complex work
 node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
   "Deep architectural review" \
-  --model gpt-5.5
+  --model gpt-5.6-sol
 
 # Faster, lower-cost scans
 node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
   "Summarize this diff" \
-  --model gpt-5.4-mini
+  --model gpt-5.6-luna
 ```
 
 ### JSON output for automation
@@ -385,12 +385,14 @@ if [ $? -eq 124 ]; then echo "Codex timed out"; fi
 ```bash
 node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
   "Analyze this codebase and list the top 3 security risks" \
-  --model gpt-5.5 \
+  --model gpt-5.6-sol \
   --json \
   --timeout-ms 60000
 ```
 
 ### GitHub Actions CI/CD integration
+
+Prefer [`openai/codex-action`](https://github.com/openai/codex-action) when you only need Codex in Actions. To drive **this** wrapper, install the CLI and pass `CODEX_API_KEY` only on the Codex step (do not set API keys as job-wide env vars beside untrusted scripts):
 
 ```yaml
 - uses: actions/setup-node@v4
@@ -400,19 +402,16 @@ node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
 - name: Install Codex CLI
   run: npm install -g @openai/codex
 
-- name: Authenticate Codex CLI
-  run: codex login
-  env:
-    OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-
 - name: Verify setup
   run: node .claude/skills/omega-codex-cli/scripts/verify-setup.mjs
 
 - name: Run AI code review
+  env:
+    CODEX_API_KEY: ${{ secrets.OPENAI_API_KEY }}
   run: |
     node .claude/skills/omega-codex-cli/scripts/ask-codex.mjs \
       "Review the PR diff for security issues and breaking changes" \
-      --model gpt-5.5 \
+      --model gpt-5.6-sol \
       --json
 ```
 

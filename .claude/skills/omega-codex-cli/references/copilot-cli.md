@@ -7,14 +7,14 @@ If you also use Copilot CLI headlessly in the same project, select its backend m
 ```bash
 copilot -p "Review this function for bugs"
 
-# Example explicit model (verify against your Copilot account)
-COPILOT_MODEL="gpt-5.5" copilot -p "Review this function for bugs"
+# Example explicit model (verify against your Copilot account — IDs differ from Codex)
+COPILOT_MODEL="gpt-5.6-sol" copilot -p "Review this function for bugs"
 ```
 
 PowerShell:
 
 ```powershell
-$env:COPILOT_MODEL="gpt-5.5"; copilot -p "Review this function"
+$env:COPILOT_MODEL="gpt-5.6-sol"; copilot -p "Review this function"
 ```
 
 See [GitHub Copilot CLI documentation](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills) for current model names and auth.
